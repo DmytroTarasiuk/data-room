@@ -1,9 +1,13 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { createApp } from "../apps/api/src/app";
 
 type NodeHandler = (req: IncomingMessage, res: ServerResponse) => void;
 
-const app = createApp() as unknown as NodeHandler;
+let appPromise: Promise<NodeHandler> | undefined;
+
+async function getApp() {
+  appPromise ??= import("../apps/api/src/app.js").then(({ createApp }) => createApp() as unknown as NodeHandler);
+  return appPromise;
+}
 
 function normalizeVercelRewriteUrl(req: IncomingMessage) {
   const rawUrl = req.url ?? "/";
@@ -26,7 +30,8 @@ function normalizeVercelRewriteUrl(req: IncomingMessage) {
   return `/api${normalizedPath}${parsed.search}`;
 }
 
-export default function handler(req: IncomingMessage, res: ServerResponse) {
+export default async function handler(req: IncomingMessage, res: ServerResponse) {
+  const app = await getApp();
   req.url = normalizeVercelRewriteUrl(req);
   app(req, res);
 }

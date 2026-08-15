@@ -165,15 +165,6 @@ Backend environment variables:
 - `S3_SECRET_ACCESS_KEY`
 - `S3_FORCE_PATH_STYLE`
 
-Frontend environment variable:
-
-- `VITE_API_URL`
-
-Hosted URLs for a submitted take-home should be added here after deployment:
-
-- Frontend: _pending deployment_
-- Backend: _pending deployment_
-
 ## AI Use
 
 I used AI assistance to scaffold code, reason through authorization edge cases, generate seed/demo data, and draft documentation. I reviewed and adjusted the architecture, data model, naming policy, storage boundary, and user flows while building.

@@ -1,0 +1,111 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String     @id @default(cuid())
+  email        String     @unique
+  name         String
+  passwordHash String
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  dataRooms    DataRoom[]
+  files        File[]
+  shares       Share[]    @relation("ShareOwner")
+  auditLogs    AuditLog[]
+}
+
+model DataRoom {
+  id          String     @id @default(cuid())
+  ownerId     String
+  name        String
+  sizeBytes   Int        @default(0)
+  fileCount   Int        @default(0)
+  folderCount Int        @default(0)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  owner       User       @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  folders     Folder[]
+  files       File[]
+
+  @@unique([ownerId, name])
+  @@index([ownerId, updatedAt])
+}
+
+model Folder {
+  id          String    @id @default(cuid())
+  dataRoomId  String
+  parentId    String?
+  name        String
+  sizeBytes   Int       @default(0)
+  fileCount   Int       @default(0)
+  folderCount Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  dataRoom    DataRoom  @relation(fields: [dataRoomId], references: [id], onDelete: Cascade)
+  parent      Folder?   @relation("FolderTree", fields: [parentId], references: [id], onDelete: Cascade)
+  children    Folder[]  @relation("FolderTree")
+  files       File[]
+
+  @@unique([dataRoomId, parentId, name])
+  @@index([dataRoomId, parentId, name])
+  @@index([parentId])
+}
+
+model File {
+  id           String    @id @default(cuid())
+  dataRoomId   String
+  folderId     String
+  ownerId      String
+  name         String
+  originalName String
+  mimeType     String
+  sizeBytes    Int
+  storageKey   String    @unique
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  dataRoom     DataRoom  @relation(fields: [dataRoomId], references: [id], onDelete: Cascade)
+  folder       Folder    @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  owner        User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@unique([folderId, name])
+  @@index([dataRoomId, folderId, name])
+  @@index([folderId, updatedAt])
+}
+
+model Share {
+  id             String    @id @default(cuid())
+  ownerId        String
+  resourceType   String
+  resourceId     String
+  mode           String
+  role           String    @default("VIEWER")
+  recipientEmail String?
+  token          String    @unique
+  createdAt      DateTime  @default(now())
+  revokedAt      DateTime?
+  owner          User      @relation("ShareOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@index([resourceType, resourceId, revokedAt])
+  @@index([recipientEmail, revokedAt])
+  @@index([ownerId, revokedAt])
+}
+
+model AuditLog {
+  id           String   @id @default(cuid())
+  actorId      String
+  action       String
+  resourceType String
+  resourceId   String
+  metadata     String?
+  createdAt    DateTime @default(now())
+  actor        User     @relation(fields: [actorId], references: [id], onDelete: Cascade)
+
+  @@index([actorId, createdAt])
+  @@index([resourceType, resourceId])
+}

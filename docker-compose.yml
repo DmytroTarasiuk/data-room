@@ -1,0 +1,47 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: acme-dataroom-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: acme_dataroom
+      POSTGRES_USER: acme
+      POSTGRES_PASSWORD: acme
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U acme -d acme_dataroom"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  minio:
+    image: minio/minio:RELEASE.2025-02-28T09-55-16Z
+    container_name: acme-dataroom-minio
+    command: server /data --console-address ":9001"
+    restart: unless-stopped
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio-data:/data
+
+  minio-create-bucket:
+    image: minio/mc:RELEASE.2025-02-21T16-00-46Z
+    depends_on:
+      - minio
+    entrypoint: >
+      /bin/sh -c "
+      until /usr/bin/mc alias set local http://minio:9000 minioadmin minioadmin; do sleep 1; done;
+      /usr/bin/mc mb --ignore-existing local/acme-dataroom;
+      exit 0;
+      "
+
+volumes:
+  postgres-data:
+  minio-data:

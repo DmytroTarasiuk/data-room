@@ -1,0 +1,32 @@
+{
+  "name": "acme-dataroom",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Full-stack virtual data room MVP for secure acquisition due diligence.",
+  "workspaces": [
+    "apps/api",
+    "apps/web"
+  ],
+  "scripts": {
+    "dev": "concurrently -n api,web -c blue,green \"npm:dev:api\" \"npm:dev:web\"",
+    "dev:api": "npm --workspace apps/api run dev",
+    "dev:web": "npm --workspace apps/web run dev",
+    "build": "npm --workspace apps/api run build && npm --workspace apps/web run build",
+    "test": "npm --workspace apps/api run test",
+    "lint": "npm --workspace apps/web run lint && npm --workspace apps/api run lint",
+    "db:generate": "npm --workspace apps/api run db:generate",
+    "db:migrate": "npm --workspace apps/api run db:migrate",
+    "db:seed": "npm --workspace apps/api run db:seed"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "typescript": "^5.7.3"
+  },
+  "overrides": {
+    "@types/express": "4.17.25",
+    "@types/express-serve-static-core": "4.19.9"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

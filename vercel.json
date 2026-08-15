@@ -1,8 +1,16 @@
 {
+  "framework": "vite",
+  "installCommand": "npm install",
   "buildCommand": "npm run db:generate && npm run build",
   "outputDirectory": "apps/web/dist",
   "rewrites": [
-    { "source": "/rooms/:path*", "destination": "/" },
-    { "source": "/share/:path*", "destination": "/" }
+    {
+      "source": "/rooms/:path*",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/share/:path*",
+      "destination": "/index.html"
+    }
   ]
 }

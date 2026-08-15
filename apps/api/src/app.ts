@@ -35,6 +35,10 @@ export function createApp() {
     res.json({ ok: true });
   });
 
+  app.get("/api/health", (_req, res) => {
+    res.json({ ok: true });
+  });
+
   app.use("/api/auth", authRouter);
   app.use("/api/data-rooms", dataRoomsRouter);
   app.use("/api", foldersRouter);

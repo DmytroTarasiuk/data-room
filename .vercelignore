@@ -1,0 +1,8 @@
+.env
+.env.*
+node_modules
+apps/*/node_modules
+apps/*/dist
+apps/api/storage
+*.tsbuildinfo
+__MACOSX

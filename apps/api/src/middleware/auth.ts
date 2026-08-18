@@ -4,7 +4,7 @@ import { env } from "../lib/env.js";
 import { HttpError } from "../lib/http.js";
 import { prisma } from "../lib/prisma.js";
 
-const SESSION_COOKIE = "acme_dataroom_session";
+const SESSION_COOKIE = "dataroom_session";
 
 export type AuthUser = {
   id: string;

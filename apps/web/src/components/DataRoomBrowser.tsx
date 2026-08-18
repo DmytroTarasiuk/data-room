@@ -21,9 +21,11 @@ import {
   FileItem,
   Folder as FolderItem,
   ResourceType,
+  FILE_UPLOAD_ACCEPT,
+  FILE_UPLOAD_TYPES_LABEL,
   fileContentUrl,
   request,
-  uploadPdf
+  uploadFile
 } from "../lib/api";
 import { formatBytes, formatDate, pluralize } from "../lib/format";
 import { Button, EmptyState, IconButton, Modal, Notice, Spinner, TextInput } from "./ui";
@@ -252,20 +254,25 @@ export function DataRoomBrowser({ roomId, folderId, token, onOpenFolder, onRoomM
     setUploads((current) => [...rows, ...current].slice(0, 12));
     setNotice("");
 
-    await Promise.all(
-      files.map(async (file, index) => {
-        const row = rows[index]!;
+    const queue = files.map((file, index) => ({ file, row: rows[index]! }));
+    let nextIndex = 0;
+    const worker = async () => {
+      while (nextIndex < queue.length) {
+        const item = queue[nextIndex++];
+        if (!item) return;
         try {
-          await uploadPdf(roomId, folderId, file, (progress) => updateUpload(row.id, { progress }));
-          updateUpload(row.id, { progress: 100, status: "done" });
+          await uploadFile(roomId, folderId, item.file, (progress) => updateUpload(item.row.id, { progress }));
+          updateUpload(item.row.id, { progress: 100, status: "done" });
         } catch (err) {
-          updateUpload(row.id, {
+          updateUpload(item.row.id, {
             status: "error",
             error: err instanceof ApiError ? err.message : "Upload failed"
           });
         }
-      })
-    );
+      }
+    };
+
+    await Promise.all(Array.from({ length: Math.min(3, queue.length) }, () => worker()));
 
     await loadContents();
     onRoomMutated?.();
@@ -320,7 +327,7 @@ export function DataRoomBrowser({ roomId, folderId, token, onOpenFolder, onRoomM
     >
       {dragging ? (
         <div className="absolute inset-3 z-20 flex items-center justify-center rounded-lg border-2 border-dashed border-[#0f8b8d] bg-[#eefafa]/90 text-sm font-semibold text-[#166265]">
-          Drop PDFs to upload
+          Drop PDF, Word, Excel, or text files to upload
         </div>
       ) : null}
 
@@ -358,14 +365,14 @@ export function DataRoomBrowser({ roomId, folderId, token, onOpenFolder, onRoomM
                   <FolderPlus size={16} />
                   New folder
                 </Button>
-                <Button variant="secondary" onClick={() => inputRef.current?.click()}>
+                <Button variant="secondary" onClick={() => inputRef.current?.click()} title={FILE_UPLOAD_TYPES_LABEL}>
                   <Upload size={16} />
                   Upload
                 </Button>
                 <input
                   ref={inputRef}
                   type="file"
-                  accept="application/pdf,.pdf"
+                  accept={FILE_UPLOAD_ACCEPT}
                   multiple
                   className="hidden"
                   onChange={(event: ChangeEvent<HTMLInputElement>) => {
@@ -472,12 +479,12 @@ export function DataRoomBrowser({ roomId, folderId, token, onOpenFolder, onRoomM
         {sortedItems.folders.length === 0 && sortedItems.files.length === 0 ? (
           <EmptyState
             title={query ? "No matches in this folder" : "This folder is empty"}
-            detail={canWrite ? "Add folders or upload PDFs to continue organizing diligence material." : undefined}
+            detail={canWrite ? "Add folders or upload documents to continue organizing diligence material." : undefined}
             action={
               canWrite && !query ? (
                 <Button onClick={() => inputRef.current?.click()}>
                   <Upload size={16} />
-                  Upload PDFs
+                  Upload files
                 </Button>
               ) : undefined
             }

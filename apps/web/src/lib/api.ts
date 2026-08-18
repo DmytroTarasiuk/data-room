@@ -45,6 +45,22 @@ export type FileItem = {
   updatedAt: string;
 };
 
+export type FilePreviewPayload =
+  | {
+      kind: "text";
+      format: "word" | "text";
+      text: string;
+      truncated: boolean;
+    }
+  | {
+      kind: "spreadsheet";
+      sheets: Array<{ name: string; rows: string[][]; truncated: boolean }>;
+      truncated: boolean;
+    };
+
+export const FILE_UPLOAD_ACCEPT = ".pdf,.docx,.xlsx,.txt,.csv,.tsv,.md,.log";
+export const FILE_UPLOAD_TYPES_LABEL = "PDF, Word (DOCX), Excel (XLSX/CSV/TSV), and text files";
+
 export type Share = {
   id: string;
   resourceType: ResourceType;
@@ -149,7 +165,7 @@ export function fileContentUrl(fileId: string, token?: string, download = false)
   return `${API_URL}/api/files/${fileId}/content${query ? `?${query}` : ""}`;
 }
 
-export function uploadPdf(
+export function uploadFile(
   roomId: string,
   folderId: string,
   file: File,
@@ -182,4 +198,11 @@ export function uploadPdf(
     xhr.onerror = () => reject(new ApiError(0, "Upload failed"));
     xhr.send(formData);
   });
+}
+
+export function fetchFilePreview(fileId: string, token?: string, signal?: AbortSignal) {
+  const params = new URLSearchParams();
+  if (token) params.set("token", token);
+  const query = params.toString();
+  return request<FilePreviewPayload>(`/api/files/${fileId}/preview${query ? `?${query}` : ""}`, { signal });
 }

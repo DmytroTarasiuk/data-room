@@ -11,9 +11,9 @@ export function AuthView({
   message?: string;
 }) {
   const [mode, setMode] = useState<"login" | "register">("login");
-  const [name, setName] = useState("Acme Reviewer");
-  const [email, setEmail] = useState("founder@acme.test");
-  const [password, setPassword] = useState("password123");
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -76,7 +76,7 @@ export function AuthView({
             {mode === "login" ? "Welcome back" : "Create your workspace"}
           </h2>
           <p className="mt-2 text-sm text-[#667478]">
-            Use the seeded demo account or register another email.
+            Sign in with your account or create a new one.
           </p>
 
           <div className="mt-5 space-y-4">

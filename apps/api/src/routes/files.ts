@@ -11,13 +11,20 @@ import { assertWriteAccess, getFileAccess, getFolderAccess, getRootFolder } from
 import { resolveUniqueName } from "../services/naming.js";
 import { applySubtreeDelta } from "../services/stats.js";
 import { storage } from "../services/storage.js";
+import {
+  createFilePreview,
+  FileFormatError,
+  SUPPORTED_UPLOAD_LABEL,
+  validateUploadedFile
+} from "../services/fileFormats.js";
 
 const router = Router();
+const MAX_FILES_PER_REQUEST = 5;
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
     fileSize: env.MAX_UPLOAD_MB * 1024 * 1024,
-    files: 20
+    files: MAX_FILES_PER_REQUEST
   }
 });
 
@@ -29,12 +36,8 @@ const moveSchema = z.object({
   targetFolderId: z.string().min(1)
 });
 
-function isPdf(file: Express.Multer.File) {
-  return file.mimetype === "application/pdf" || file.originalname.toLowerCase().endsWith(".pdf");
-}
-
 function storageKey(roomId: string, folderId: string, originalName: string) {
-  const ext = path.extname(originalName) || ".pdf";
+  const ext = path.extname(originalName) || ".bin";
   return `${roomId}/${folderId}/${nanoid(20)}${ext}`;
 }
 
@@ -51,10 +54,24 @@ async function resolveTargetFolder(roomId: string, folderId: string) {
   return prisma.folder.findUnique({ where: { id: folderId } });
 }
 
+async function streamToBuffer(stream: NodeJS.ReadableStream, maxBytes: number) {
+  const chunks: Buffer[] = [];
+  let total = 0;
+  for await (const chunk of stream) {
+    const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+    total += buffer.length;
+    if (total > maxBytes) {
+      throw new HttpError(413, "File is too large to preview");
+    }
+    chunks.push(buffer);
+  }
+  return Buffer.concat(chunks, total);
+}
+
 router.post(
   "/data-rooms/:roomId/folders/:folderId/files",
   requireAuth,
-  upload.array("files", 20),
+  upload.array("files", MAX_FILES_PER_REQUEST),
   asyncHandler(async (req, res) => {
     const roomId = routeParam(req, "roomId");
     const folderParam = routeParam(req, "folderId");
@@ -72,18 +89,23 @@ router.post(
 
     const files = (req.files ?? []) as Express.Multer.File[];
     if (files.length === 0) {
-      throw new HttpError(400, "Choose at least one PDF to upload");
+      throw new HttpError(400, `Choose at least one file to upload (${SUPPORTED_UPLOAD_LABEL})`);
     }
 
-    const rejected = files.filter((file) => !isPdf(file));
-    if (rejected.length > 0) {
-      throw new HttpError(400, "Only PDF uploads are supported in this MVP", {
-        rejected: rejected.map((file) => file.originalname)
-      });
-    }
+    const validatedFiles = files.map((file) => {
+      try {
+        return validateUploadedFile(file.originalname, file.buffer);
+      } catch (error) {
+        if (error instanceof FileFormatError) {
+          throw new HttpError(400, error.message, { file: file.originalname });
+        }
+        throw error;
+      }
+    });
 
     const created = [];
-    for (const file of files) {
+    for (const [index, file] of files.entries()) {
+      const validated = validatedFiles[index]!;
       const resolved = await resolveUniqueName(file.originalname, "file", async (candidate) => {
         const existing = await prisma.file.findFirst({
           where: {
@@ -98,28 +120,37 @@ router.post(
       await storage.putObject({
         key,
         buffer: file.buffer,
-        contentType: file.mimetype || "application/pdf"
+        contentType: validated.mimeType
       });
 
-      const record = await prisma.$transaction(async (tx) => {
-        const createdFile = await tx.file.create({
-          data: {
-            dataRoomId: access.room.id,
-            folderId: folder.id,
-            ownerId: req.user!.id,
-            name: resolved.name,
-            originalName: file.originalname,
-            mimeType: file.mimetype || "application/pdf",
-            sizeBytes: file.size,
-            storageKey: key
-          }
-        });
-        await applySubtreeDelta(tx, access.room.id, folder.id, {
-          sizeBytes: file.size,
-          fileCount: 1
-        });
-        return createdFile;
-      });
+      const record = await (async () => {
+        try {
+          return await prisma.$transaction(async (tx: any) => {
+            const createdFile = await tx.file.create({
+              data: {
+                dataRoomId: access.room.id,
+                folderId: folder.id,
+                ownerId: req.user!.id,
+                name: resolved.name,
+                originalName: file.originalname,
+                mimeType: validated.mimeType,
+                sizeBytes: file.size,
+                storageKey: key
+              }
+            });
+            await applySubtreeDelta(tx, access.room.id, folder.id, {
+              sizeBytes: file.size,
+              fileCount: 1
+            });
+            return createdFile;
+          });
+        } catch (error) {
+          await storage.deleteObject(key).catch((cleanupError) => {
+            console.error("Failed to clean up uploaded object after database error", cleanupError);
+          });
+          throw error;
+        }
+      })();
 
       created.push({ ...record, conflictResolved: resolved.conflictResolved });
     }
@@ -139,11 +170,44 @@ router.get(
     });
 
     const object = await storage.getObject(access.file.storageKey);
-    res.setHeader("Content-Type", access.file.mimeType || object.contentType || "application/pdf");
+    res.setHeader("Content-Type", access.file.mimeType || object.contentType || "application/octet-stream");
     res.setHeader("Content-Length", String(access.file.sizeBytes));
     res.setHeader("Content-Disposition", contentDisposition(access.file.name, req.query.download === "1"));
+    res.setHeader("Cache-Control", "private, no-store");
+    res.setHeader("X-Content-Type-Options", "nosniff");
     object.stream.on("error", () => res.destroy());
     object.stream.pipe(res);
+  })
+);
+
+
+router.get(
+  "/files/:fileId/preview",
+  asyncHandler(async (req, res) => {
+    const fileId = routeParam(req, "fileId");
+    const access = await getFileAccess({
+      user: req.user,
+      fileId,
+      token: typeof req.query.token === "string" ? req.query.token : undefined
+    });
+
+    const object = await storage.getObject(access.file.storageKey);
+    const buffer = await streamToBuffer(object.stream, env.MAX_UPLOAD_MB * 1024 * 1024);
+
+    try {
+      const preview = createFilePreview({
+        fileName: access.file.name,
+        mimeType: access.file.mimeType,
+        buffer
+      });
+      res.setHeader("Cache-Control", "private, no-store");
+      res.json(preview);
+    } catch (error) {
+      if (error instanceof FileFormatError) {
+        throw new HttpError(422, error.message);
+      }
+      throw error;
+    }
   })
 );
 
@@ -214,7 +278,7 @@ router.patch(
       return Boolean(existing);
     });
 
-    const moved = await prisma.$transaction(async (tx) => {
+    const moved = await prisma.$transaction(async (tx: any) => {
       const file = await tx.file.update({
         where: { id: access.file.id },
         data: {
@@ -252,7 +316,7 @@ router.delete(
     });
     await assertWriteAccess(access);
 
-    await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx: any) => {
       await tx.file.delete({ where: { id: access.file.id } });
       await tx.share.updateMany({
         where: {

@@ -1,6 +1,6 @@
 # Acme Data Room
 
-Full-stack virtual data room MVP for acquisition due diligence. Owners can create data rooms, organize nested folders, upload and preview PDFs, rename/move/delete items, and share rooms, folders, or files as read-only resources through public links or invited-user links.
+Full-stack virtual data room MVP for acquisition due diligence. Owners can create data rooms, organize nested folders, upload and preview PDFs, DOCX, XLSX, CSV/TSV, and text files, rename/move/delete items, and share rooms, folders, or files as read-only resources through public links or invited-user links.
 
 ## Stack
 
@@ -43,9 +43,9 @@ Then set `STORAGE_DRIVER=s3` in `apps/api/.env`. MinIO console runs at http://lo
 
 - Create, rename, browse, and delete nested folders with breadcrumb navigation.
 - Delete preview warns with subtree folder count, file count, and size.
-- Multiple PDF upload through picker or drag-and-drop.
+- Multiple document upload through picker or drag-and-drop (PDF, DOCX, XLSX, CSV/TSV, TXT/MD/LOG).
 - Per-file upload progress in the upload queue.
-- Inline PDF preview and download.
+- Inline PDF preview, safe DOCX text preview, spreadsheet/table preview, text preview, and download.
 - File rename with conflict suffixing, for example `Board Consent (1).pdf`.
 - File move to any folder in the same room, with destination-name conflict resolution.
 - File delete with blob cleanup and share revocation.

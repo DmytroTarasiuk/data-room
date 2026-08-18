@@ -22,6 +22,7 @@ import {
 import { formatBytes, formatDate, pluralize } from "./lib/format";
 import { AuthView } from "./components/AuthView";
 import { DataRoomBrowser } from "./components/DataRoomBrowser";
+import { FilePreviewContent } from "./components/FilePreview";
 import { Button, EmptyState, IconButton, Modal, Notice, Spinner, TextInput } from "./components/ui";
 
 type Route =
@@ -443,10 +444,15 @@ function ShareView({
           </Button>
         </header>
         <div className="min-h-0 flex-1 p-4">
-          <iframe
-            title={resolved.resource.label}
-            src={fileContentUrl(resolved.resource.fileId, token)}
-            className="h-[calc(100vh-104px)] w-full rounded-lg border border-[#d7ddda] bg-white"
+          <FilePreviewContent
+            file={{
+              id: resolved.resource.fileId,
+              name: resolved.resource.label,
+              mimeType: resolved.resource.mimeType,
+              sizeBytes: resolved.resource.sizeBytes
+            }}
+            token={token}
+            className="h-[calc(100vh-104px)]"
           />
         </div>
       </main>

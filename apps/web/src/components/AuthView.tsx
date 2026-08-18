@@ -45,9 +45,6 @@ export function AuthView({
             <Building2 size={24} />
           </div>
           <h1 className="mt-8 text-3xl font-semibold leading-tight">Data Room</h1>
-          <p className="mt-4 max-w-md text-sm leading-6 text-white/78">
-            Project Horizon diligence materials.
-          </p>
         </div>
 
         <form onSubmit={submit} className="p-8 md:p-10">

@@ -175,7 +175,7 @@ function Dashboard({
               <Building2 size={21} />
             </div>
             <div className="min-w-0">
-              <p className="truncate text-sm font-semibold text-[#1f2a2d]">Acme Data Room</p>
+              <p className="truncate text-sm font-semibold text-[#1f2a2d]">Data Room</p>
               <p className="truncate text-xs text-[#667478]">{user.email}</p>
             </div>
           </div>
@@ -255,7 +255,7 @@ function Dashboard({
         <header className="flex h-16 items-center justify-between border-b border-[#dfe5e2] bg-white px-4 lg:hidden">
           <div className="flex items-center gap-2">
             <Building2 size={20} />
-            <span className="text-sm font-semibold">Acme Data Room</span>
+            <span className="text-sm font-semibold">Data Room</span>
           </div>
           <div className="flex gap-1">
             <IconButton title="New data room" onClick={() => setCreateOpen(true)}>

@@ -1,4 +1,4 @@
-# Acme Data Room
+# Data Room
 
 Full-stack virtual data room MVP for acquisition due diligence. Owners can create data rooms, organize nested folders, upload and preview PDFs, DOCX, XLSX, CSV/TSV, and text files, rename/move/delete items, and share rooms, folders, or files as read-only resources through public links or invited-user links.
 
